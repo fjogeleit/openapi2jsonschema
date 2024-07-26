@@ -148,6 +148,48 @@ def default(output, schema, prefix, stand_alone, expanded, kubernetes, strict):
                 json_encoder.encode({"definitions": definitions}),
                 file=definitions_file,
             )
+    else:
+        with open("%s/_definitions.json" % output, "w") as definitions_file:
+            info("Generating shared definitions")
+            definitions = data["components"]["schemas"]
+            if kubernetes:
+                definitions["io.k8s.apimachinery.pkg.util.intstr.IntOrString"] = {
+                    "oneOf": [{"type": "string"}, {"type": "integer"}]
+                }
+                # Although the kubernetes api does not allow `number`  as valid
+                # Quantity type - almost all kubenetes tooling
+                # recognizes it is valid. For this reason, we extend the API definition to
+                # allow `number` values.
+                definitions["io.k8s.apimachinery.pkg.api.resource.Quantity"] = {
+                    "oneOf": [{"type": "string"}, {"type": "number"}]
+                }
+
+                # For Kubernetes, populate `apiVersion` and `kind` properties from `x-kubernetes-group-version-kind`
+                for type_name in definitions:
+                    type_def = definitions[type_name]
+                    if "x-kubernetes-group-version-kind" in type_def:
+                        for kube_ext in type_def["x-kubernetes-group-version-kind"]:
+                            if expanded and "apiVersion" in type_def["properties"]:
+                                api_version = (
+                                    kube_ext["group"] + "/" + kube_ext["version"]
+                                    if kube_ext["group"]
+                                    else kube_ext["version"]
+                                )
+                                append_no_duplicates(
+                                    type_def["properties"]["apiVersion"],
+                                    "enum",
+                                    api_version,
+                                )
+                            if "kind" in type_def["properties"]:
+                                kind = kube_ext["kind"]
+                                append_no_duplicates(
+                                    type_def["properties"]["kind"], "enum", kind
+                                )
+            if strict:
+                definitions = additional_properties(definitions)
+            definitions_file.write(
+                json.dumps({"components": {"schemas": definitions}}, indent=2)
+            )
 
     types = []
 

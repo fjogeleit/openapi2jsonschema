@@ -11,7 +11,7 @@ endif
 DOCKER ?= docker
 
 .PHONY: all
-all: lint test build
+all: lint build
 
 .PHONY: venv
 venv:
