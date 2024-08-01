@@ -17,7 +17,8 @@ def additional_properties(data):
             if isinstance(v, dict):
                 if "properties" in v:
                     if "additionalProperties" not in v:
-                        v["additionalProperties"] = False
+                        if "x-kubernetes-preserve-unknown-fields" not in v:
+                            v["additionalProperties"] = False
                 new_v = additional_properties(v)
             else:
                 new_v = v
